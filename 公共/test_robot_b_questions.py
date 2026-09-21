@@ -1,5 +1,9 @@
 import math
+from pathlib import Path
+import sys
 import unittest
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import robot_b_questions as robot
 

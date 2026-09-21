@@ -3,6 +3,7 @@
 本目录中的 `robot_b_questions.py` 完成机器人应用相关题 B1、B2、B3。
 
 程序只使用 Python 标准库，不需要安装 `numpy`、`scipy` 或其他第三方包。
+因此本项目不提供空的 `requirements.txt`，避免把标准库程序误判为需要安装第三方依赖。
 
 当前目录同时提供 `run_robot_b_questions.bat`，用于 Windows 命令行或双击启动。
 
@@ -40,6 +41,15 @@ python .\robot_b_questions.py --case b3
 
 ```powershell
 python .\robot_b_questions.py --output .\robot_b_results.txt
+```
+
+B1-B3 的独立入口位于题目目录中，均通过脚本位置引用本目录的公共实现，不依赖当前工作目录：
+
+```powershell
+cd F:\实践考题
+python .\题目B1\solve.py
+python .\题目B2\solve.py
+python .\题目B3\solve.py
 ```
 
 ## 运行测试
