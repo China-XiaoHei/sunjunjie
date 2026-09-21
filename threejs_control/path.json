@@ -1,0 +1,41 @@
+{
+  "unit": "m",
+  "description": "A custom test path defined for A1 because the exam does not provide concrete waypoint coordinates.",
+  "points": [
+    {
+      "index": 0,
+      "name": "P0",
+      "x": 0.00,
+      "y": 0.00,
+      "z": 0.15
+    },
+    {
+      "index": 1,
+      "name": "P1",
+      "x": 0.55,
+      "y": 0.00,
+      "z": 0.15
+    },
+    {
+      "index": 2,
+      "name": "P2",
+      "x": 0.55,
+      "y": 0.45,
+      "z": 0.30
+    },
+    {
+      "index": 3,
+      "name": "P3",
+      "x": 0.15,
+      "y": 0.45,
+      "z": 0.30
+    },
+    {
+      "index": 4,
+      "name": "P4",
+      "x": 0.15,
+      "y": 0.10,
+      "z": 0.55
+    }
+  ]
+}

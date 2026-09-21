@@ -1,0 +1,286 @@
+# A1：Three.js 3D 场景与外部驱动使用说明
+
+## 1. 完成内容
+
+本实现完成题目 A1：
+
+- 使用 Three.js 创建三维场景。
+- 场景中包含网格地面、坐标轴、固定路径、路径点、目标标记和运动方块。
+- 外部程序通过 HTTP 向 Node 服务发送目标位置和速度。
+- Node 服务按照速度推进方块位置。
+- 页面通过 WebSocket 接收实时状态并更新三维场景。
+- 如果 WSL localhost 转发下 WebSocket 3 秒内未完成连接，页面自动切换为 HTTP 状态轮询。
+- 页面支持查看当前位置、目标点、速度、命令 ID 和运动完成状态。
+- 同时提供 Python 外部控制程序，按路径顺序发送多个目标点。
+- 网页界面文案采用中文显示，技术接口字段仍使用英文，便于程序调用。
+
+题目没有给出具体路径坐标，因此本实现使用 `threejs_control/path.json` 中定义的自定义测试路径，并在代码和文档中明确说明。
+
+## 2. 文件结构
+
+```text
+threejs_control/
+  package.json
+  path.json
+  server.js
+  controller.py
+  public/
+    index.html
+    app.js
+    styles.css
+```
+
+服务端使用 Node 标准库。Three.js `0.170.0` 作为本地 npm 依赖安装，Node 服务通过本地 URL 提供 `three.module.js` 和 `OrbitControls.js`，浏览器不需要访问外部 CDN。
+
+外部控制器使用 Python 3.9 或更高版本的标准库。
+
+## 3. 自定义路径
+
+路径单位为米：
+
+| 点 | x | y | z |
+|---|---:|---:|---:|
+| P0 | 0.00 | 0.00 | 0.15 |
+| P1 | 0.55 | 0.00 | 0.15 |
+| P2 | 0.55 | 0.45 | 0.30 |
+| P3 | 0.15 | 0.45 | 0.30 |
+| P4 | 0.15 | 0.10 | 0.55 |
+
+方块初始位于 P0。外部控制程序按 P1、P2、P3、P4 的顺序发送目标，因此运动轨迹由这些折线段组成。
+
+如需修改路径，只需修改 `threejs_control/path.json`，服务端和 Python 控制器会读取同一份路径配置。
+
+## 4. 启动服务
+
+首次运行先安装依赖：
+
+```powershell
+cd F:\实践考题\threejs_control
+npm install
+```
+
+启动后，Node 服务会提供两个本地前端模块：
+
+```text
+/vendor/three.module.js
+/vendor/OrbitControls.js
+```
+
+这两个地址对应 `node_modules/three` 中的文件。可用以下命令检查：
+
+```powershell
+Invoke-WebRequest http://localhost:8080/vendor/three.module.js
+Invoke-WebRequest http://localhost:8080/vendor/OrbitControls.js
+```
+
+返回状态应为 `200`。
+
+服务端会为静态文件返回明确的 `Content-Length`，并使用显式文件偏移读取大文件，避免部分 WSL 挂载盘环境把 Three.js 的 512 KiB 数据块重复返回。如果浏览器仍然一直转圈，说明当前 `8080` 端口可能仍由旧进程占用，必须停止旧进程后重新启动，不能只刷新浏览器。
+JavaScript 和 CSS 使用 `no-store`，页面脚本带有版本参数，浏览器不会继续使用旧模块。
+
+WSL 中可检查模块是否完整返回：
+
+```bash
+curl --http1.1 -sS --max-time 5 -D - \
+  http://127.0.0.1:8080/vendor/OrbitControls.js \
+  -o /tmp/OrbitControls.js
+wc -c /tmp/OrbitControls.js
+```
+
+`OrbitControls.js` 应约为 `32134` 字节；如果文件持续增长或命令超时，先按 `Ctrl+C` 停止旧服务，再重新启动。
+
+检查浏览器实际收到的 Three.js 是否完整：
+
+```bash
+curl -sS --max-time 10 \
+  http://127.0.0.1:8080/vendor/three.module.js \
+  | grep -c "const REVISION = '170';"
+```
+
+结果必须为 `1`。如果大于 `1`，说明当前仍是旧服务进程；停止后重新启动。页面等待 5 秒仍未加载前端模块时，会显示“前端模块加载失败”，不再无限显示“连接中”。
+
+在 Windows PowerShell 中：
+
+```powershell
+cd F:\实践考题\threejs_control
+node .\server.js
+```
+
+在 WSL 中：
+
+```bash
+cd /mnt/f/实践考题/threejs_control
+node server.js --host 0.0.0.0 --port 8080
+```
+
+修改 `server.js`、`public/index.html` 或 `public/app.js` 后，必须在运行服务的终端按 `Ctrl+C` 停止旧进程，再重新执行启动命令。Node 服务不会自动热更新。
+
+服务启动后访问：
+
+```text
+http://localhost:8080/
+```
+
+健康检查：
+
+```text
+http://localhost:8080/api/health
+```
+
+## 5. 使用页面控制
+
+页面右侧提供以下操作：
+
+- `发送下一个路径点`：发送当前点之后的下一个路径点。
+- `运行完整路径`：依次发送 P1 到 P4。
+- `重置`：将方块恢复到 P0。
+- `停止路线序列`：停止页面自动发送后续路径点，不撤销已经发送的当前目标。
+
+页面按钮发送的请求与外部控制程序使用同一个 HTTP 接口，因此可以用页面和外部程序分别证明控制链路。
+
+## 6. 外部 HTTP 协议
+
+### 6.1 发送路径点
+
+请求：
+
+```http
+POST /api/control
+Content-Type: application/json
+```
+
+请求体：
+
+```json
+{
+  "type": "move",
+  "pathIndex": 2,
+  "target": {
+    "x": 0.55,
+    "y": 0.45,
+    "z": 0.30
+  },
+  "speed": 0.35,
+  "commandId": "demo-p2"
+}
+```
+
+服务端会校验 `target` 与 `pathIndex` 对应路径点一致，再执行该目标。`speed` 单位为 m/s，允许范围是 `(0, 5]`。
+
+### 6.2 发送任意目标位置
+
+也可以直接发送目标坐标：
+
+```json
+{
+  "type": "move",
+  "target": {
+    "x": 0.32,
+    "y": 0.18,
+    "z": 0.42
+  },
+  "speed": 0.20,
+  "commandId": "custom-001"
+}
+```
+
+不带 `pathIndex` 时，服务端将其视为自定义目标，不改变当前路径点索引。
+
+### 6.3 查询状态
+
+```http
+GET /api/state
+```
+
+返回数据包含：
+
+- `position`：当前坐标。
+- `target`：当前目标坐标。
+- `speed`：当前速度。
+- `moving`：是否正在运动。
+- `commandId`：当前命令 ID。
+- `lastCompletedCommandId`：最近完成的命令 ID。
+- `currentPathIndex`：最近到达的路径点。
+- `targetPathIndex`：当前目标路径点。
+
+### 6.4 WebSocket
+
+页面连接：
+
+```text
+ws://localhost:8080/ws
+```
+
+正常情况下页面显示“已连接”。如果 WebSocket 连接超过 3 秒未完成，页面会自动改用 HTTP `/api/state` 轮询，不影响位置和运动状态显示。
+
+服务端会推送：
+
+```json
+{
+  "type": "state",
+  "state": {
+    "position": {
+      "x": 0.15,
+      "y": 0.10,
+      "z": 0.55
+    },
+    "moving": false,
+    "currentPathIndex": 4
+  },
+  "path": {
+    "unit": "m",
+    "points": []
+  }
+}
+```
+
+## 7. 使用 Python 外部控制器
+
+服务端启动后，在另一个终端执行：
+
+```powershell
+cd F:\实践考题\threejs_control
+python .\controller.py
+```
+
+指定速度：
+
+```powershell
+python .\controller.py --speed 0.20
+```
+
+执行两次完整路线：
+
+```powershell
+python .\controller.py --speed 0.35 --repeat 2
+```
+
+控制器会等待每个路径点到达后再发送下一个路径点，输出示例：
+
+```text
+Connected to http://127.0.0.1:8080. Starting route at P0.
+Reached P1 at (0.550000, 0.000000, 0.150000)
+Reached P2 at (0.550000, 0.450000, 0.300000)
+Reached P3 at (0.150000, 0.450000, 0.300000)
+Reached P4 at (0.150000, 0.100000, 0.550000)
+Route completed.
+```
+
+## 8. 运行验证
+
+建议至少验证：
+
+1. 浏览器能够打开页面。
+2. 页面显示 `已连接`。
+3. 点击 `发送下一个路径点` 后，方块不是瞬移，而是按照速度逐步移动。
+4. 页面当前位置和服务端 `/api/state` 一致。
+5. Python 控制器能够让方块依次到达 P1-P4。
+6. 修改速度后，单位时间内位移变化符合速度设置。
+7. 点击 `重置` 后位置恢复为 P0。
+
+## 9. 现实限制
+
+- 首次执行 `npm install` 需要 npm 能够访问软件源；安装完成后页面运行不再依赖 jsDelivr。
+- 本题未连接真实机器人，运动仅为三维场景中的位置模拟。
+- 当前服务端使用欧氏距离直线插值，每个外部命令对应一个路径线段。
+- 未加入机器人关节、碰撞和动力学约束。

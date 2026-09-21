@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>机器人路径外部控制</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "/vendor/three.module.js"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="scene-panel" aria-label="Three.js 三维场景">
+        <div id="scene-root"></div>
+        <div class="scene-overlay">
+          <div class="brand-line">
+            <span class="status-dot" id="connection-dot"></span>
+            <span id="connection-label">连接中</span>
+          </div>
+          <div class="scene-title">
+            <span class="eyebrow">A1 / 外部运动控制</span>
+            <h1>路径运动实验台</h1>
+            <p>外部程序发送目标位置和速度，驱动方块沿预设三维路径运动。</p>
+          </div>
+          <div class="scene-legend">
+            <span><i class="legend-swatch swatch-path"></i>路径</span>
+            <span><i class="legend-swatch swatch-target"></i>目标</span>
+            <span><i class="legend-swatch swatch-cube"></i>方块</span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="control-panel">
+        <header class="panel-header">
+          <div>
+            <span class="eyebrow">机器人仿真</span>
+            <h2>运动控制台</h2>
+          </div>
+          <span class="unit-badge">米 / 米·秒⁻¹</span>
+        </header>
+
+        <section class="metric-grid" aria-label="当前运动状态">
+          <div class="metric-card">
+            <span class="metric-label">位置</span>
+            <strong id="position-value">0.000, 0.000, 0.000</strong>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">速度</span>
+            <strong id="speed-value">0.000</strong>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">路径点</span>
+            <strong id="waypoint-value">P0</strong>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">运动状态</span>
+            <strong id="motion-value">静止</strong>
+          </div>
+        </section>
+
+        <section class="command-section">
+          <div class="section-heading">
+            <h3>外部指令</h3>
+            <span id="command-value">无指令</span>
+          </div>
+          <label class="field-label" for="speed-input">速度</label>
+          <div class="speed-row">
+            <input id="speed-input" type="number" min="0.01" max="5" step="0.01" value="0.35" />
+            <span>米/秒</span>
+          </div>
+          <div class="button-row">
+            <button class="primary-button" id="next-button" type="button">发送下一个路径点</button>
+            <button class="quiet-button" id="reset-button" type="button">重置</button>
+          </div>
+          <div class="button-row">
+            <button class="secondary-button" id="route-button" type="button">运行完整路径</button>
+            <button class="secondary-button" id="stop-button" type="button">停止路线序列</button>
+          </div>
+        </section>
+
+        <section class="path-section">
+          <div class="section-heading">
+            <h3>预设路径</h3>
+            <span id="path-count">5 个点</span>
+          </div>
+          <ol class="path-list" id="path-list"></ol>
+        </section>
+
+        <section class="event-section">
+          <div class="section-heading">
+            <h3>事件日志</h3>
+            <button class="text-button" id="clear-log-button" type="button">清空</button>
+          </div>
+          <div class="event-log" id="event-log" aria-live="polite"></div>
+        </section>
+      </aside>
+    </main>
+    <script>
+      window.setTimeout(() => {
+        if (!window.__A1_APP_READY__) {
+          const label = document.querySelector("#connection-label");
+          const dot = document.querySelector("#connection-dot");
+          label.textContent = "前端模块加载失败";
+          dot.classList.add("error");
+        }
+      }, 5000);
+    </script>
+    <script type="module" src="/app.js?v=20260920-3"></script>
+  </body>
+</html>
